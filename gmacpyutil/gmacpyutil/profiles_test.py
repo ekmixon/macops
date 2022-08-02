@@ -21,9 +21,11 @@ class ProfilesModuleTest(basetest.TestCase):
     with self.assertRaises(profiles.PayloadValidationError):
       profiles.ValidatePayload(payload)
 
-    payload.update({profiles.PAYLOADKEYS_IDENTIFIER: 'a',
-                    profiles.PAYLOADKEYS_DISPLAYNAME: 'a',
-                    profiles.PAYLOADKEYS_TYPE: 'com.apple.welcome.to.1984'})
+    payload |= {
+        profiles.PAYLOADKEYS_IDENTIFIER: 'a',
+        profiles.PAYLOADKEYS_DISPLAYNAME: 'a',
+        profiles.PAYLOADKEYS_TYPE: 'com.apple.welcome.to.1984',
+    }
 
     profiles.ValidatePayload(payload)
 
@@ -48,10 +50,11 @@ class ProfileClassTest(basetest.TestCase):
     return profile
 
   def _GetValidPayload(self):
-    test_payload = {profiles.PAYLOADKEYS_IDENTIFIER: 'com.test.payload',
-                    profiles.PAYLOADKEYS_DISPLAYNAME: 'Test Payload',
-                    profiles.PAYLOADKEYS_TYPE: 'com.apple.welcome.to.1984'}
-    return test_payload
+    return {
+        profiles.PAYLOADKEYS_IDENTIFIER: 'com.test.payload',
+        profiles.PAYLOADKEYS_DISPLAYNAME: 'Test Payload',
+        profiles.PAYLOADKEYS_TYPE: 'com.apple.welcome.to.1984',
+    }
 
   def testInit(self):
     """Test the __init__ method."""

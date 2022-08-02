@@ -49,8 +49,8 @@ class TimeFile(object):
     time_str = gmacpyutil.GetPlistKey(self.timeplist, PLIST_TIMESTAMP_KEY)
 
     if not time_str:
-      raise ErrorReadingPlist('Could not read %s from %s' %
-                              (PLIST_TIMESTAMP_KEY, self.timeplist))
+      raise ErrorReadingPlist(
+          f'Could not read {PLIST_TIMESTAMP_KEY} from {self.timeplist}')
 
     self.stored_time = datetime.datetime.strptime(time_str,
                                                   '%Y-%m-%d %H:%M:%S %Z')
@@ -71,11 +71,7 @@ class TimeFile(object):
       ErrorWritingPlist: SetPlistKey fails
       OSError: if more >1 parent directory is missing from self.timeplist path
     """
-    if timestamp:
-      self.stored_time = timestamp
-    else:
-      self.stored_time = datetime.datetime.utcnow()
-
+    self.stored_time = timestamp or datetime.datetime.utcnow()
     # This will only handle one missing parent dir
     # os.mkdirs not available in version of python we run
     if not os.path.exists(os.path.dirname(self.timeplist)):
@@ -83,8 +79,8 @@ class TimeFile(object):
 
     timestr = self.stored_time.strftime('%Y-%m-%d %H:%M:%S UTC')
     if not gmacpyutil.SetPlistKey(self.timeplist, PLIST_TIMESTAMP_KEY, timestr):
-      raise ErrorWritingPlist('Could not write to %s in %s'
-                              % (PLIST_TIMESTAMP_KEY, self.timeplist))
+      raise ErrorWritingPlist(
+          f'Could not write to {PLIST_TIMESTAMP_KEY} in {self.timeplist}')
     return self.stored_time
 
   def GetOrCreateTimestamp(self):

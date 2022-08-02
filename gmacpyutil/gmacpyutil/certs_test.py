@@ -299,8 +299,8 @@ class CertsModuleTest(mox.MoxTestBase):
     certs._GetCertificates(keychain=None).AndReturn(allcerts)
     self.mox.ReplayAll()
     self.assertEqual(allcerts, certs.FindCertificates())
-    self.assertEqual(allcerts[0:1], certs.FindCertificates(subject='s1'))
-    self.assertEqual(allcerts[0:2], certs.FindCertificates(issuer='i1'))
+    self.assertEqual(allcerts[:1], certs.FindCertificates(subject='s1'))
+    self.assertEqual(allcerts[:2], certs.FindCertificates(issuer='i1'))
     self.assertEqual([], certs.FindCertificates(issuer='i3'))
     self.assertEqual([], certs.FindCertificates(subject='s1', issuer='i2'))
     self.mox.VerifyAll()
@@ -309,10 +309,10 @@ class CertsModuleTest(mox.MoxTestBase):
     """Test CertificateExpired."""
     c = self.mox.CreateMockAnything()
     self.mox.ReplayAll()
-    expired = datetime.datetime.today() - datetime.timedelta(days=1)
+    expired = datetime.datetime.now() - datetime.timedelta(days=1)
     c.enddate = [None, expired]
     self.assertTrue(certs.CertificateExpired(c))
-    unexpired = datetime.datetime.today() + datetime.timedelta(days=1)
+    unexpired = datetime.datetime.now() + datetime.timedelta(days=1)
     c.enddate = [None, unexpired]
     self.assertFalse(certs.CertificateExpired(c))
     self.mox.VerifyAll()

@@ -7,12 +7,13 @@ Validation should be broken out into generic int/bool/string validation
 methods.
 """
 
+
 from . import gmacpyutil
 from . import defaults
 
 
 _CD_APP = defaults.COCOADIALOG_PATH
-_CD = '%s/Contents/MacOS/CocoaDialog' % _CD_APP
+_CD = f'{_CD_APP}/Contents/MacOS/CocoaDialog'
 
 
 class DialogException(Exception):
@@ -30,14 +31,10 @@ class Dialog(object):
     self._width = None
     self._height = None
     self._password_box = False
-    if cocoadialog:
-      self._cocoadialog = cocoadialog
-    else:
-      self._cocoadialog = _CD
+    self._cocoadialog = cocoadialog or _CD
 
   def __str__(self):
-    return 'CocoaDialog[%s] -- title: [%s]' % (self.__class__.__name__,
-                                               self._title)
+    return f'CocoaDialog[{self.__class__.__name__}] -- title: [{self._title}]'
 
   def GetTitle(self):
     return self._title
@@ -53,7 +50,7 @@ class Dialog(object):
     try:
       value = int(value)
     except ValueError:
-      raise DialogException('%s has no boolean equivalent.' % value)
+      raise DialogException(f'{value} has no boolean equivalent.')
     # but we want to keep it as a boolean.
     self._debug = bool(value)
 
@@ -76,8 +73,8 @@ class Dialog(object):
     try:
       value = int(value)
     except ValueError:
-      raise DialogException('Timeout value %s is not an integer.' % value)
-    self._timeout = int(value)
+      raise DialogException(f'Timeout value {value} is not an integer.')
+    self._timeout = value
 
   title = property(GetTitle, SetTitle)
   debug = property(GetDebug, SetDebug)
@@ -100,17 +97,15 @@ class Dialog(object):
     cmds = [self._cocoadialog]
     # Cocoa Dialog uses "-" in run modes, Python classes can't use this char.
     runmode = self.__class__.__name__.lower().replace('_', '-')
-    cmds.append(runmode)
-    cmds.append('--string-output')
+    cmds.extend((runmode, '--string-output'))
     if self.title:
       cmds.extend(['--title', self._title])
     if self.debug:
       cmds.append('--debug')
-    if not self._timeout:
-      if runmode == 'bubble':
-        cmds.append('--no-timeout')  # only bubble supports this option.
-    else:
+    if self._timeout:
       cmds.extend(['--timeout', self._timeout])
+    elif runmode == 'bubble':
+      cmds.append('--no-timeout')  # only bubble supports this option.
     if self._width:
       cmds.extend(['--width', self._width])
     if self._height:
@@ -197,9 +192,9 @@ class Bubble(TweakDialog):
     try:
       value = float(value)
     except ValueError:
-      raise DialogException('Alpha value %s is not a float.' % value)
+      raise DialogException(f'Alpha value {value} is not a float.')
     if value < 0 or value > 1.0:
-      raise DialogException('Alpha value %s is not between 0 and 1' % value)
+      raise DialogException(f'Alpha value {value} is not between 0 and 1')
     self._alpha = value
 
   def GetXPlacement(self):
@@ -207,8 +202,7 @@ class Bubble(TweakDialog):
 
   def SetXPlacement(self, value):
     if value.lower() not in self.xplacement_vals:
-      raise DialogException('value %s not one of %s' % (value,
-                                                        self.xplacement_vals))
+      raise DialogException(f'value {value} not one of {self.xplacement_vals}')
     self._xplacement = value.lower()
 
   def GetYPlacement(self):
@@ -216,8 +210,7 @@ class Bubble(TweakDialog):
 
   def SetYPlacement(self, value):
     if value.lower() not in self.yplacement_vals:
-      raise DialogException('value %s not one of %s' % (value,
-                                                        self.yplacement_vals))
+      raise DialogException(f'value {value} not one of {self.yplacement_vals}')
     self._yplacement = value.lower()
 
   def GetTextColor(self):
@@ -310,8 +303,7 @@ class MsgBox(TweakDialog):
 
   def GenerateCommand(self):
     super_cmds = super(MsgBox, self).GenerateCommand()
-    cmds = []
-    cmds.extend(['--button1', self._button1])
+    cmds = ['--button1', self._button1]
     if self._button2:
       cmds.extend(['--button2', self._button2])
     if self._button3:
@@ -447,17 +439,13 @@ class DropDown(MsgBox):
 
   def __init__(self, title=None, cocoadialog=None):
     self._items = []
-    if cocoadialog:
-      self._cocoadialog = cocoadialog
-    else:
-      self._cocoadialog = _CD
+    self._cocoadialog = cocoadialog or _CD
     self._title = title
     self._debug = None
     super(DropDown, self).__init__(title)
 
   def __str__(self):
-    return 'CocoaDialog[%s] -- title: [%s]' % (self.__class__.__name__,
-                                               self._title)
+    return f'CocoaDialog[{self.__class__.__name__}] -- title: [{self._title}]'
 
   def GetItems(self):
     return self._items
@@ -473,8 +461,7 @@ class DropDown(MsgBox):
     cmds = []
     if self._items:
       dropdown_items = ['--items']
-      for item in self._items:
-        dropdown_items.append(item)
+      dropdown_items.extend(iter(self._items))
       cmds.extend(dropdown_items)
     super_cmds.extend(cmds)
     return super_cmds
@@ -493,18 +480,14 @@ class Standard_DropDown(MsgBox):  # pylint: disable=invalid-name
 
   def __init__(self, title=None, cocoadialog=None):
     self._items = []
-    if cocoadialog:
-      self._cocoadialog = cocoadialog
-    else:
-      self._cocoadialog = _CD
+    self._cocoadialog = cocoadialog or _CD
     self._title = title
     self._no_cancel = False
     self._debug = None
     super(Standard_DropDown, self).__init__(title)
 
   def __str__(self):
-    return 'CocoaDialog[%s] -- title: [%s]' % (self.__class__.__name__,
-                                               self._title)
+    return f'CocoaDialog[{self.__class__.__name__}] -- title: [{self._title}]'
 
   def GetItems(self):
     return self._items
@@ -527,8 +510,7 @@ class Standard_DropDown(MsgBox):  # pylint: disable=invalid-name
     cmds = []
     if self._items:
       dropdown_items = ['--items']
-      for item in self._items:
-        dropdown_items.append(item)
+      dropdown_items.extend(iter(self._items))
       cmds.extend(dropdown_items)
     if self._no_cancel:
       cmds.append('--no-cancel')

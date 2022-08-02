@@ -1,5 +1,6 @@
 """Module to read and configure directoryservice related data."""
 
+
 import filecmp
 from optparse import OptionParser
 import os
@@ -10,13 +11,12 @@ import shutil
 try:
   from Foundation import NSString
 except ImportError:
-  if os.uname()[0] == 'Linux':
-    import sys
-    print >>sys.stderr, 'Skipping Mac imports for later mock purposes.'
-    del sys
-  else:
+  if os.uname()[0] != 'Linux':
     raise
 
+  import sys
+  import sys
+  del sys
 from . import gmacpyutil
 # pylint: enable=g-import-not-at-top
 
@@ -52,10 +52,9 @@ def _GetCSPSearchPathForPath(path):
   (stdout, stderr, unused_returncode) = gmacpyutil.RunProcess(command)
   result = plistlib.readPlistFromString(stdout)
   if 'dsAttrTypeStandard:CSPSearchPath' in result:
-    search_nodes = result['dsAttrTypeStandard:CSPSearchPath']
-    return search_nodes
+    return result['dsAttrTypeStandard:CSPSearchPath']
   else:
-    raise DSException('Unable to retrieve search nodes: %s' % stderr)
+    raise DSException(f'Unable to retrieve search nodes: {stderr}')
 
 
 def _ModifyCSPSearchPathForPath(action, node, path):
@@ -71,7 +70,7 @@ def _ModifyCSPSearchPathForPath(action, node, path):
     DSException: Could not modify nodes for path.
   """
 
-  command = [_DSCL, path, '-%s' % action, '/', 'CSPSearchPath', node]
+  command = [_DSCL, path, f'-{action}', '/', 'CSPSearchPath', node]
   (unused_stdout, stderr, returncode) = gmacpyutil.RunProcess(command)
   if returncode:
     raise DSException('Unable to perform %s on CSPSearchPath '
@@ -148,40 +147,34 @@ def DSQuery(dstype, objectname, attribute=None, node='.'):
   Raises:
     DSException: Cannot query DirectoryServices.
   """
-  ds_path = '/%ss/%s' % (dstype.capitalize(), objectname)
+  ds_path = f'/{dstype.capitalize()}s/{objectname}'
   cmd = [_DSCL, '-plist', node, '-read', ds_path]
   if attribute:
     cmd.append(attribute)
   (stdout, stderr, returncode) = gmacpyutil.RunProcess(cmd)
   if returncode:
-    raise DSException('Cannot query %s for %s: %s' % (ds_path,
-                                                      attribute,
-                                                      stderr))
+    raise DSException(f'Cannot query {ds_path} for {attribute}: {stderr}')
   plist = NSString.stringWithString_(stdout).propertyList()
-  if attribute:
-    value = None
-    if 'dsAttrTypeStandard:%s' % attribute in plist:
-      value = plist['dsAttrTypeStandard:%s' % attribute]
-    elif attribute in plist:
-      value = plist[attribute]
-    try:
-      # We're copying to a new list to convert from NSCFArray
-      return value[:]
-    except TypeError:
-      # ... unless we can't
-      return value
-  else:
+  if not attribute:
     return plist
+  value = None
+  if f'dsAttrTypeStandard:{attribute}' in plist:
+    value = plist[f'dsAttrTypeStandard:{attribute}']
+  elif attribute in plist:
+    value = plist[attribute]
+  try:
+    # We're copying to a new list to convert from NSCFArray
+    return value[:]
+  except TypeError:
+    # ... unless we can't
+    return value
 
 
 def DSSearch(path, key, value, node='.'):
   cmd = [_DSCL, node, '-search', path, key, value]
   (stdout, stderr, returncode) = gmacpyutil.RunProcess(cmd)
   if returncode:
-    raise DSException('Cannot search %s for %s:%s. %s' % (path,
-                                                          key,
-                                                          value,
-                                                          stderr))
+    raise DSException(f'Cannot search {path} for {key}:{value}. {stderr}')
   return NSString.stringWithString_(stdout)
 
 
@@ -198,22 +191,19 @@ def DSList(dstype, objectname=None):
   Raises:
     ds.DSException: Cannot query DirectoryServices
   """
-  ds_path = '/%ss' % dstype.capitalize()
+  ds_path = f'/{dstype.capitalize()}s'
   if objectname:
-    ds_path = ds_path + '/' + objectname
+    ds_path = f'{ds_path}/{objectname}'
   cmd = [_DSCL, '.', '-list', ds_path]
   stdout, stderr, rc = gmacpyutil.RunProcess(cmd)
   if rc:
-    raise DSException('Cannot list %s: %s' % (ds_path, stderr))
-  if stdout:
-    return stdout.rstrip('\n').split('\n')
-  return []
+    raise DSException(f'Cannot list {ds_path}: {stderr}')
+  return stdout.rstrip('\n').split('\n') if stdout else []
 
 
 def DSGetRecordNameFromUUID(dstype, uuid, node='.'):
-  search_result = DSSearch('/%ss' % (dstype.capitalize()), 'GeneratedUID', uuid,
-                           node=node)
-  if search_result:
+  if search_result := DSSearch(
+      f'/{dstype.capitalize()}s', 'GeneratedUID', uuid, node=node):
     return search_result.split('\t')[0]
   else:
     return None
@@ -232,20 +222,18 @@ def DSSet(dstype, objectname, attribute=None, value=None):
   Raises:
     DSException: Cannot modify DirectoryServices.
   """
-  ds_path = '/%ss/%s' % (dstype.capitalize(), objectname)
+  ds_path = f'/{dstype.capitalize()}s/{objectname}'
   cmd = [_DSCL, '.', '-create', ds_path]
   if attribute:
     cmd.append(attribute)
     if value:
-      if type(value) == type(list()):
+      if type(value) == type([]):
         cmd.extend(value)
       else:
         cmd.append(value)
   (unused_stdout, stderr, returncode) = gmacpyutil.RunProcess(cmd)
   if returncode:
-    raise DSException('Cannot set %s for %s: %s' % (attribute,
-                                                    ds_path,
-                                                    stderr))
+    raise DSException(f'Cannot set {attribute} for {ds_path}: {stderr}')
 
 
 def DSAppend(dstype, objectname, attribute, value):
@@ -262,17 +250,15 @@ def DSAppend(dstype, objectname, attribute, value):
   Raises:
     DSException: Cannot modify DirectoryServices.
   """
-  ds_path = '/%ss/%s' % (dstype.capitalize(), objectname)
+  ds_path = f'/{dstype.capitalize()}s/{objectname}'
   cmd = [_DSCL, '.', '-append', ds_path, attribute]
-  if type(value) == type(list()):
+  if type(value) == type([]):
     cmd.extend(value)
   else:
     cmd.append(value)
   (unused_stdout, stderr, returncode) = gmacpyutil.RunProcess(cmd)
   if returncode:
-    raise DSException('Cannot append %s for %s: %s' % (attribute,
-                                                       ds_path,
-                                                       stderr))
+    raise DSException(f'Cannot append {attribute} for {ds_path}: {stderr}')
 
 
 def DSDelete(dstype, objectname, attribute=None, value=None):
@@ -286,7 +272,7 @@ def DSDelete(dstype, objectname, attribute=None, value=None):
   Raises:
     DSException: Cannot modify DirectoryServices.
   """
-  ds_path = '/%ss/%s' % (dstype.capitalize(), objectname)
+  ds_path = f'/{dstype.capitalize()}s/{objectname}'
   cmd = [_DSCL, '.', '-delete', ds_path]
   if attribute:
     cmd.append(attribute)
@@ -294,9 +280,7 @@ def DSDelete(dstype, objectname, attribute=None, value=None):
       cmd.extend([value])
   (unused_stdout, stderr, returncode) = gmacpyutil.RunProcess(cmd)
   if returncode:
-    raise DSException('Cannot delete %s for %s: %s' % (attribute,
-                                                       ds_path,
-                                                       stderr))
+    raise DSException(f'Cannot delete {attribute} for {ds_path}: {stderr}')
 
 
 def UserAttribute(username, attribute, node='.'):
@@ -341,7 +325,7 @@ def EditLocalGroup(action, recordtype, account, group):
   if action in _EDITGROUPACTIONS:
     operation = _EDITGROUPACTIONS[action]
   else:
-    raise DSException('Unsupported dseditgroup action %s' % action)
+    raise DSException(f'Unsupported dseditgroup action {action}')
 
   cmd = [_DSEDITGROUP, '-o', 'edit', '-n', '.',
          operation, account, '-t', recordtype, group]
@@ -410,10 +394,14 @@ def RemoveGroupFromLocalGroup(delgroup, group):
 
 def CreateShadowAccount(username, shadow_name):
   """Creates a shadow user account."""
-  shadow_account = {'PrimaryGID': '80', 'UniqueID': '497',
-                    'RealName': '%s Admin' % username,
-                    'AuthenticationAuthority': ';ShadowHash;',
-                    'NFSHomeDirectory': '/var/empty', 'UserShell': '/bin/bash'}
+  shadow_account = {
+      'PrimaryGID': '80',
+      'UniqueID': '497',
+      'RealName': f'{username} Admin',
+      'AuthenticationAuthority': ';ShadowHash;',
+      'NFSHomeDirectory': '/var/empty',
+      'UserShell': '/bin/bash',
+  }
 
   DSSet('user', shadow_name)
 
@@ -462,9 +450,8 @@ def _GetNameFromGroupUID(groupuid, ldap_server=None):
   try:
     name = DSGetRecordNameFromUUID('group', groupuid)
     if not name and ldap_server:
-      name = DSGetRecordNameFromUUID('group',
-                                     groupuid,
-                                     node='/LDAPv3/%s' % ldap_server)
+      name = DSGetRecordNameFromUUID(
+          'group', groupuid, node=f'/LDAPv3/{ldap_server}')
   except DSException:
     pass
   return name
@@ -489,8 +476,7 @@ def GetGroupMembership(groupname, ldap_server=None):
     membership = 'UNKNOWN'
 
   try:
-    nested_groups = DSQuery('group', groupname, attribute='NestedGroups')
-    if nested_groups:
+    if nested_groups := DSQuery('group', groupname, attribute='NestedGroups'):
       groups = []
       for groupuid in nested_groups:
         groupname = _GetNameFromGroupUID(groupuid,

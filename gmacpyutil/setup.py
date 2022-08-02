@@ -31,12 +31,8 @@ setuptools.setup(
     url='https://github.com/google/macops/',
     author='Google Inc.',
     author_email='google-macops@googlegroups.com',
-
     license='Apache 2.0',
-
     packages=setuptools.find_packages(),
-
-    provides=['gmacpyutil (%s)' % (_GMACPYUTIL_VERSION)],
-
+    provides=[f'gmacpyutil ({_GMACPYUTIL_VERSION})'],
     cmdclass={'test': TestCommand},
 )

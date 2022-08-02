@@ -102,7 +102,7 @@ class AppleScriptRunner(object):
       AppleScriptError: if an error occured at the AppleScript layer
     """
     if args:
-      safe_args = tuple([self._EscapeScriptValue(x) for x in args])
+      safe_args = tuple(self._EscapeScriptValue(x) for x in args)
       osa_script %= safe_args
 
     logging.debug('AppleScript: %s', osa_script)
@@ -159,9 +159,7 @@ class AppleScriptRunner(object):
           'numberOfItems %d != unpack_fmt len %d' % (noi, lf))
 
     values = []
-    idx = 1
-
-    for f in unpack_fmt:
+    for idx, f in enumerate(unpack_fmt, start=1):
       d = ret.descriptorAtIndex_(idx)
       if f == 's':  # unicode string
         values.append(unicode(d.stringValue()))
@@ -171,8 +169,6 @@ class AppleScriptRunner(object):
         values.append(d.int32Value())
       else:
         raise Error('unknown unpack_fmt char %s', f)
-      idx += 1
-
     return values
 
   def DialogGetString(

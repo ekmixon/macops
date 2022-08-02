@@ -55,31 +55,24 @@ class Disk(object):
       except KeyError:  # not all objects have all these attributes
         pass
 
-    if self.busprotocol == "Disk Image":  # pylint: disable=no-member
-      self.diskimage = True
-    else:
-      self.diskimage = False
+    self.diskimage = self.busprotocol == "Disk Image"
 
   def Mounted(self):
     """Is it mounted."""
     try:
-      if self.mountpoint:  # pylint: disable=no-member
-        return True
-      else:
-        return False
+      return bool(self.mountpoint)
     except KeyError:
       return False
 
   def Partitions(self):
     """Child partitions of a whole disk."""
     if not self.wholedisk:  # pylint: disable=no-member
-      raise MacDiskError("%s is not a whole disk" % self.deviceid)
+      raise MacDiskError(f"{self.deviceid} is not a whole disk")
     else:
-      partitions = []
-      for p in PartitionDeviceIds():
-        if re.compile("^%ss" % self.deviceid).search(p):
-          partitions.append(Disk(p))
-      return partitions
+      return [
+          Disk(p) for p in PartitionDeviceIds()
+          if re.compile(f"^{self.deviceid}s").search(p)
+      ]
 
   def Info(self):
     """info."""
@@ -88,15 +81,14 @@ class Disk(object):
   def Mount(self):
     """Mounts single volumes for partitions, all volumes for whole disks."""
     if self.Mounted():
-      raise MacDiskError("%s is already mounted" % self.deviceid)
-    else:
-      command = ["diskutil", "mount", self.deviceid]
-      if self.wholedisk:  # pylint: disable=no-member
-        command[1] = "mountDisk"
-      rc = gmacpyutil.RunProcess(command)[2]
-      if rc == 0:
-        self.Refresh()
-        return True
+      raise MacDiskError(f"{self.deviceid} is already mounted")
+    command = ["diskutil", "mount", self.deviceid]
+    if self.wholedisk:  # pylint: disable=no-member
+      command[1] = "mountDisk"
+    rc = gmacpyutil.RunProcess(command)[2]
+    if rc == 0:
+      self.Refresh()
+      return True
 
   def EnsureMountedWithRefresh(self):
     """Mounts single volumes for partitions, all volumes for whole disks.
@@ -121,66 +113,59 @@ class Disk(object):
   def Unmount(self, force=False):
     """Unounts single volumes for partitions, all volumes for whole disks."""
     if not self.Mounted():
-      raise MacDiskError("%s is not mounted" % self.deviceid)
-    else:
-      command = ["diskutil", "unmount", self.deviceid]
-      if force:
-        command.insert(2, "force")
-      if self.wholedisk:  # pylint: disable=no-member
-        command[1] = "unmountDisk"
-      rc = gmacpyutil.RunProcess(command)[2]
-      if rc == 0:
-        self.Refresh()
-        return True
+      raise MacDiskError(f"{self.deviceid} is not mounted")
+    command = ["diskutil", "unmount", self.deviceid]
+    if force:
+      command.insert(2, "force")
+    if self.wholedisk:  # pylint: disable=no-member
+      command[1] = "unmountDisk"
+    rc = gmacpyutil.RunProcess(command)[2]
+    if rc == 0:
+      self.Refresh()
+      return True
 
   def Rename(self, newname):
     """Renames a single volume."""
-    if self.wholedisk:  # pylint: disable=no-member
-      raise MacDiskError("Cannot rename whole disk %s" % self.deviceid)
-    else:
-      command = ["diskutil", "renameVolume", self.deviceid, newname]
-      rc = gmacpyutil.RunProcess(command)[2]
-      if rc == 0:
-        self.Refresh()
-        return True
+    if self.wholedisk:
+      raise MacDiskError(f"Cannot rename whole disk {self.deviceid}")
+    command = ["diskutil", "renameVolume", self.deviceid, newname]
+    rc = gmacpyutil.RunProcess(command)[2]
+    if rc == 0:
+      self.Refresh()
+      return True
 
   def EnableJournal(self):
     """enables journalling."""
     if self.wholedisk:  # pylint: disable=no-member
-      raise MacDiskError("Cannot enable journal on whole disk: %s" %
-                         self.deviceid)
-    if self.journalsize:  # pylint: disable=no-member
-      raise MacDiskError("%s already has a journal." % self.deviceid)
-    else:
-      command = ["diskutil", "enableJournal", self.deviceid]
-      rc = gmacpyutil.RunProcess(command)[2]
-      if rc == 0:
-        self.Refresh()
-        return True
+      raise MacDiskError(f"Cannot enable journal on whole disk: {self.deviceid}")
+    if self.journalsize:
+      raise MacDiskError(f"{self.deviceid} already has a journal.")
+    command = ["diskutil", "enableJournal", self.deviceid]
+    rc = gmacpyutil.RunProcess(command)[2]
+    if rc == 0:
+      self.Refresh()
+      return True
 
   def DisableJournal(self):
     """enables journalling."""
     if self.wholedisk:  # pylint: disable=no-member
-      raise MacDiskError("Cannot enable journal on whole disk: %s" %
-                         self.deviceid)
-    if not self.journalsize:  # pylint: disable=no-member
-      raise MacDiskError("%s already has no journal." % self.deviceid)
-    else:
-      command = ["diskutil", "disableJournal", self.deviceid]
-      rc = gmacpyutil.RunProcess(command)[2]
-      if rc == 0:
-        self.Refresh()
-        return True
+      raise MacDiskError(f"Cannot enable journal on whole disk: {self.deviceid}")
+    if not self.journalsize:
+      raise MacDiskError(f"{self.deviceid} already has no journal.")
+    command = ["diskutil", "disableJournal", self.deviceid]
+    rc = gmacpyutil.RunProcess(command)[2]
+    if rc == 0:
+      self.Refresh()
+      return True
 
   def SetStartupDisk(self):
     """Sets this disk to be the startup disk."""
     self.Refresh()
     # pylint: disable=no-member
-    if not self.Mounted():
-      command = ["/usr/sbin/bless", "--device", self.deviceidentifier,
-                 "--setBoot"]
-    else:
-      command = ["/usr/sbin/bless", "--mount", self.mountpoint, "--setBoot"]
+    command = (
+        ["/usr/sbin/bless", "--mount", self.mountpoint, "--setBoot"]
+        if self.Mounted() else
+        ["/usr/sbin/bless", "--device", self.deviceidentifier, "--setBoot"])
     rc = gmacpyutil.RunProcess(command)[2]
     if rc == 0:
       return True
@@ -231,8 +216,7 @@ class Image(object):
     command = ["asr", "imagescan", "--source", self.imagepath]
     stdout, stderr, returncode = gmacpyutil.RunProcess(command)
     if returncode is not 0:
-      raise MacDiskError("Cannot imagescan %s, %s" % (self.imagepath,
-                                                      stderr))
+      raise MacDiskError(f"Cannot imagescan {self.imagepath}, {stderr}")
     else:
       return stdout
 
@@ -271,8 +255,7 @@ class Image(object):
     images = AttachedImages()
     for image in images:
       if image["image"].imagepath == self.imagepath:
-        command = ["hdiutil", "detach"]
-        command.append(image["disks"][0].deviceid)
+        command = ["hdiutil", "detach", image["disks"][0].deviceid]
         if force:
           command.append("-force")
         gmacpyutil.RunProcess(command)
@@ -333,14 +316,12 @@ def _DictFromSubprocess(command, stdin=None):
      task["returncode"]) = gmacpyutil.RunProcess(command)
 
   if task["returncode"] is not 0:
-    raise MacDiskError("Error running command: %s, stderr: %s" %
-                       (command, task["stderr"]))
-  else:
-    try:
-      return plistlib.readPlistFromString(task["stdout"])
-    except xml.parsers.expat.ExpatError:
-      raise MacDiskError("Error creating plist from output: %s" %
-                         task["stdout"])
+    raise MacDiskError(
+        f'Error running command: {command}, stderr: {task["stderr"]}')
+  try:
+    return plistlib.readPlistFromString(task["stdout"])
+  except xml.parsers.expat.ExpatError:
+    raise MacDiskError(f'Error creating plist from output: {task["stdout"]}')
 
 
 def _DictFromDiskutilInfo(deviceid):
@@ -353,12 +334,10 @@ def _DictFromDiskutilInfo(deviceid):
   Raises:
     MacDiskError: deviceid is invalid
   """
-  # Do we want to do this? can trigger optical drive noises...
   if deviceid not in PartitionDeviceIds():
-    raise MacDiskError("%s is not a valid disk id" % deviceid)
-  else:
-    command = ["/usr/sbin/diskutil", "info", "-plist", deviceid]
-    return _DictFromSubprocess(command)
+    raise MacDiskError(f"{deviceid} is not a valid disk id")
+  command = ["/usr/sbin/diskutil", "info", "-plist", deviceid]
+  return _DictFromSubprocess(command)
 
 
 def _DictFromDiskutilList():
@@ -378,12 +357,14 @@ def _DictFromHdiutilInfo():
 def _DictFromHdiutilImageInfo(imagepath, password=None):
   """calls hdiutil imageinfo -plist and returns as dict."""
 
-  if not password:
-    command = ["/usr/bin/hdiutil", "imageinfo", "-plist", imagepath]
-  else:
-    command = ["/usr/bin/hdiutil", "imageinfo", "-encryption", "-stdinpass",
-               "-plist", imagepath]
-
+  command = ([
+      "/usr/bin/hdiutil",
+      "imageinfo",
+      "-encryption",
+      "-stdinpass",
+      "-plist",
+      imagepath,
+  ] if password else ["/usr/bin/hdiutil", "imageinfo", "-plist", imagepath])
   return _DictFromSubprocess(command, stdin=password)
 
 
@@ -399,10 +380,7 @@ def PartitionDeviceIds():
 
 def Partitions():
   """Returns a list of all disk objects that are partitions."""
-  partitions = []
-  for deviceid in PartitionDeviceIds():
-    partitions.append(Disk(deviceid))
-  return partitions
+  return [Disk(deviceid) for deviceid in PartitionDeviceIds()]
 
 
 def WholeDiskDeviceIds():
@@ -416,10 +394,7 @@ def WholeDiskDeviceIds():
 
 def WholeDisks():
   """Returns a list of all disk objects that are whole disks."""
-  wholedisks = []
-  for deviceid in WholeDiskDeviceIds():
-    wholedisks.append(Disk(deviceid))
-  return wholedisks
+  return [Disk(deviceid) for deviceid in WholeDiskDeviceIds()]
 
 
 def MountedVolumeNames():
@@ -438,12 +413,11 @@ def MountedVolumeNames():
 
 def MountedVolumes():
   """Returns a list of all Disk objects that are mounted volumes."""
-  volumes = []
   volumenames = MountedVolumeNames()
-  for partition in Partitions():
-    if partition.volumename in volumenames:
-      volumes.append(partition)
-  return volumes
+  return [
+      partition for partition in Partitions()
+      if partition.volumename in volumenames
+  ]
 
 
 def AttachedImages():
@@ -456,9 +430,7 @@ def AttachedImages():
   attached_images = []
   images = _DictFromHdiutilInfo()["images"]
   for image in images:
-    attached_image = {}
-    attached_image["image"] = Image(image["image-path"])
-    attached_image["disks"] = []
+    attached_image = {"image": Image(image["image-path"]), "disks": []}
     for entity in image["system-entities"]:
       if "dev-entry" in entity:
         attached_image["disks"].append(Disk(entity["dev-entry"]))
@@ -493,10 +465,7 @@ def InitalizeVDSB():
   """
   command = ["vsdbutil", "-i"]
   rc = gmacpyutil.RunProcess(command)[2]
-  if rc == 0:
-    return True
-  else:
-    return False
+  return rc == 0
 
 
 def Clone(source, target, erase=True, verify=True, show_activity=False):

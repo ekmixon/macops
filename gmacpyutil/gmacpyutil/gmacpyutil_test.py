@@ -61,7 +61,7 @@ class GmacpytutilModuleTest(mox.MoxTestBase):
     self.assertEqual(mock_syslogemit.call_args_list[0][0][1].msg,
                      'x' * 1900)
     self.assertEqual(mock_syslogemit.call_args_list[1][0][1].msg,
-                     'CONTINUED: %s' % ('y' * 1000))
+                     f"CONTINUED: {'y' * 1000}")
     mock_syslogemit.reset_mock()
 
     # Test space split
@@ -72,7 +72,7 @@ class GmacpytutilModuleTest(mox.MoxTestBase):
     self.assertEqual(mock_syslogemit.call_args_list[0][0][1].msg,
                      'x' * 1999)
     self.assertEqual(mock_syslogemit.call_args_list[1][0][1].msg,
-                     'CONTINUED: %s' % ('y' * 150))
+                     f"CONTINUED: {'y' * 150}")
     mock_syslogemit.reset_mock()
 
     # Test character split
@@ -80,10 +80,9 @@ class GmacpytutilModuleTest(mox.MoxTestBase):
     record.args = ('x' * 1999, 'y' * 150)
     mlslh.emit(record)
     self.assertEqual(mock_syslogemit.call_count, 2)
-    self.assertEqual(mock_syslogemit.call_args_list[0][0][1].msg,
-                     '%s%s' % ('x' * 1999, 'y'))
+    self.assertEqual(mock_syslogemit.call_args_list[0][0][1].msg, f"{'x' * 1999}y")
     self.assertEqual(mock_syslogemit.call_args_list[1][0][1].msg,
-                     'CONTINUED: %s' % ('y' * 149))
+                     f"CONTINUED: {'y' * 149}")
     mock_syslogemit.reset_mock()
 
   def testMultilineSysLogHandlerException(self):
@@ -271,9 +270,7 @@ class GmacpytutilModuleTest(mox.MoxTestBase):
     mock_env = self.mox.CreateMockAnything()
     env_copy = {'foo': 'bar'}
     new_env = {'new': True}
-    used_env = env_copy.copy()
-    used_env.update(new_env)
-
+    used_env = env_copy | new_env
     gmacpyutil.os.environ = mock_env
     gmacpyutil.subprocess.PIPE = 'pipe'
     mock_task = self.mox.CreateMockAnything()

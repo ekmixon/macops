@@ -147,10 +147,8 @@ class KnobsTest(basetest.TestCase):
   @mock.patch.object(experiments.gmacpyutil, 'MachineInfoForKey')
   def testKnobsManualKnobReturnsList(self, mock_mifk):
     def MifkSE(key):
-      if key == experiments.MANUAL_ON_KNOB:
-        return 'foo,bar,baz'
-      else:
-        return ''
+      return 'foo,bar,baz' if key == experiments.MANUAL_ON_KNOB else ''
+
     mock_mifk.side_effect = MifkSE
     k = experiments.Knobs()
     knobs = k._GetKnobs()
@@ -160,10 +158,8 @@ class KnobsTest(basetest.TestCase):
   @mock.patch.object(experiments.gmacpyutil, 'MachineInfoForKey')
   def testKnobsExperimentsKnobIsNotSplit(self, mock_mifk):
     def MifkSE(key):
-      if key == experiments.EXPERIMENTS_KNOB:
-        return 'foo,bar,baz'
-      else:
-        return ''
+      return 'foo,bar,baz' if key == experiments.EXPERIMENTS_KNOB else ''
+
     mock_mifk.side_effect = MifkSE
     k = experiments.Knobs()
     knobs = k._GetKnobs()
@@ -276,7 +272,7 @@ class ExperimentsModuleTest(basetest.TestCase):
     experiments.main(['', '-F'])
     self.assertTrue(mock_getexp.called)
     self.assertTrue(mock_inexp.called)
-    mock_output.assert_called_with('%s,false' % EXP_NAME)
+    mock_output.assert_called_with(f'{EXP_NAME},false')
 
   def testMainWithConflictingOptions(self):
     self.assertRaisesRegexp(SystemExit, r'^1$',

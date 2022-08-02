@@ -81,7 +81,7 @@ def ValidatePayload(payload):
 
   for key in required_keys:
     if key not in payload:
-      raise PayloadValidationError('Required key (%s) missing.' % key)
+      raise PayloadValidationError(f'Required key ({key}) missing.')
 
   if PAYLOADKEYS_UUID not in payload:
     payload[PAYLOADKEYS_UUID] = GenerateUUID(payload[PAYLOADKEYS_IDENTIFIER])
@@ -122,7 +122,7 @@ class Profile(object):
                      PAYLOADKEYS_TYPE]
     for key in required_keys:
       if not self.Get(key):
-        raise ProfileValidationError('Required key (%s) missing.' % key)
+        raise ProfileValidationError(f'Required key ({key}) missing.')
 
     if not self.Get(PAYLOADKEYS_UUID):
       self.Set(PAYLOADKEYS_UUID, GenerateUUID(self.Get(PAYLOADKEYS_IDENTIFIER)))
@@ -159,7 +159,7 @@ class Profile(object):
     try:
       plistlib.writePlist(self._profile, path)
     except (IOError, TypeError) as e:
-      raise ProfileSaveError('The profile could not be saved: %s' % e)
+      raise ProfileSaveError(f'The profile could not be saved: {e}')
 
   def Install(self, sudo_password=None):
     """Install the profile.
@@ -208,7 +208,7 @@ class NetworkProfile(Profile):
     self._anchor_certs = []
     self._trusted_servers = []
 
-    self.Set(PAYLOADKEYS_DISPLAYNAME, 'Network Profile (%s)' % self._username)
+    self.Set(PAYLOADKEYS_DISPLAYNAME, f'Network Profile ({self._username})')
     self.Set(PAYLOADKEYS_DESCRIPTION, 'Network authentication settings')
     self.Set(PAYLOADKEYS_IDENTIFIER, NETWORK_PROFILE_ID)
     self.Set(PAYLOADKEYS_ORG, ORGANIZATION_NAME)
@@ -218,7 +218,7 @@ class NetworkProfile(Profile):
 
   def _GenerateID(self, suffix):
     """Generates a unique PayloadIdentifier for a given suffix."""
-    return '%s.%s' % (self.Get(PAYLOADKEYS_IDENTIFIER), suffix)
+    return f'{self.Get(PAYLOADKEYS_IDENTIFIER)}.{suffix}'
 
   def AddMachineCertificate(self, certificate, private_key):
     """Adds a machine certificate payload to the profile.
@@ -313,17 +313,18 @@ class NetworkProfile(Profile):
       payload['Interface'] = 'FirstActiveEthernet'
     else:
       payload[PAYLOADKEYS_DISPLAYNAME] = ssid
-      payload[PAYLOADKEYS_IDENTIFIER] = self._GenerateID('ssid.%s' % ssid)
+      payload[PAYLOADKEYS_IDENTIFIER] = self._GenerateID(f'ssid.{ssid}')
       payload[PAYLOADKEYS_TYPE] = 'com.apple.wifi.managed'
       payload['EncryptionType'] = 'WPA'
       payload['Interface'] = 'BuiltInWireless'
       payload['SSID_STR'] = ssid
 
-    eap_client_config = {}
-    eap_client_config['AcceptEAPTypes'] = [13,]
-    eap_client_config['PayloadCertificateAnchorUUID'] = self._anchor_certs
-    eap_client_config['TLSTrustedServerNames'] = self._trusted_servers
-    eap_client_config['TLSAllowTrustExceptions'] = False
+    eap_client_config = {
+        'AcceptEAPTypes': [13],
+        'PayloadCertificateAnchorUUID': self._anchor_certs,
+        'TLSTrustedServerNames': self._trusted_servers,
+        'TLSAllowTrustExceptions': False,
+    }
     payload['EAPClientConfiguration'] = eap_client_config
 
     self.AddPayload(payload)

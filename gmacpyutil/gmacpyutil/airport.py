@@ -61,10 +61,7 @@ def GetInterfaceName(interface=None):
   """
   if not interface:
     interface = GetDefaultInterface()
-    if not interface:
-      return None
-
-  return str(interface.interfaceName())
+  return str(interface.interfaceName()) if interface else None
 
 
 def GetInterfacePower(interface=None):
@@ -78,10 +75,7 @@ def GetInterfacePower(interface=None):
   """
   if not interface:
     interface = GetDefaultInterface()
-    if not interface:
-      return False
-
-  return interface.power()
+  return interface.power() if interface else False
 
 
 def SetInterfacePower(state, interface=None):
@@ -96,8 +90,8 @@ def SetInterfacePower(state, interface=None):
   """
   if not interface:
     interface = GetDefaultInterface()
-    if not interface:
-      return False
+  if not interface:
+    return False
 
   if bool(interface.powerOn()) != state:
     _, error = interface.setPower_error_(state, None)
@@ -120,8 +114,8 @@ def Disassociate(interface=None):
   """
   if not interface:
     interface = GetDefaultInterface()
-    if not interface:
-      return
+  if not interface:
+    return
 
   interface.disassociate()
 
@@ -142,8 +136,8 @@ def AssociateToNetwork(network, password=None, remember=False, interface=None):
   """
   if not interface:
     interface = GetDefaultInterface()
-    if not interface:
-      return False
+  if not interface:
+    return False
 
   SetInterfacePower(True, interface=interface)
 
@@ -180,8 +174,8 @@ def AssociateToSSID(ssid, password=None, remember=False, interface=None):
   """
   if not interface:
     interface = GetDefaultInterface()
-    if not interface:
-      return False
+  if not interface:
+    return False
 
   SetInterfacePower(True, interface=interface)
 
@@ -213,8 +207,8 @@ def ScanForNetworks(ssid, interface=None):
   """
   if not interface:
     interface = GetDefaultInterface()
-    if not interface:
-      return None
+  if not interface:
+    return None
 
   SetInterfacePower(True, interface=interface)
 
@@ -230,9 +224,8 @@ def ScanForNetworks(ssid, interface=None):
     network_ssid = network.ssid()
     if network_ssid not in nw:
       nw[network_ssid] = network
-    else:
-      if network.rssiValue() > nw[network_ssid].rssiValue():
-        nw[network_ssid] = network
+    elif network.rssiValue() > nw[network_ssid].rssiValue():
+      nw[network_ssid] = network
 
   return nw
 
@@ -265,8 +258,7 @@ def ConnectToNetwork(withcancelbutton):
   networks = ScanForNetworks(None)
   logging.info('Found these networks: %s', networks.keys())
 
-  guest_net = _FindGuestNetwork(GUEST_NETWORKS, networks)
-  if guest_net:
+  if guest_net := _FindGuestNetwork(GUEST_NETWORKS, networks):
     network = guest_net
   else:
     action = 'Refresh'

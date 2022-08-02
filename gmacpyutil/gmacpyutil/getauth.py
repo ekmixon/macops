@@ -26,8 +26,7 @@ def _GetPasswordGUI(title='Password', text='Enter your password', hidden=True):
   pwprompt._title = title  # pylint: disable=protected-access
   pwprompt._informative_text = text  # pylint: disable=protected-access
   output = pwprompt.Show()
-  password = output.split('\n')[1]
-  return password
+  return output.split('\n')[1]
 
 
 def _GetPasswordInteractively(prompt='Password: ', hidden=True,
@@ -44,11 +43,7 @@ def _GetPasswordInteractively(prompt='Password: ', hidden=True,
     KeyboardInterrupt: User cancelled request with keyboard interrupt (Ctrl+C)
     EOFError: If password is empty
   """
-  if hidden:
-    password = getpass.getpass(prompt)
-  else:
-    password = input_fn(prompt)
-  return password
+  return getpass.getpass(prompt) if hidden else input_fn(prompt)
 
 
 def GetAuthToken(prompt='Password: ', title='Password',
@@ -74,10 +69,7 @@ def GetAuthToken(prompt='Password: ', title='Password',
       password = _GetPasswordGUI(title=title, text=text, hidden=hidden)
     else:
       password = _GetPasswordInteractively(prompt=prompt, hidden=hidden)
-    if validator:
-      if validator.match(password):
-        return password
-    else:
+    if validator and validator.match(password) or not validator:
       return password
 
 

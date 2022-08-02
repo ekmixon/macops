@@ -1,5 +1,6 @@
 """Modules and methods for managing OS X."""
 
+
 import contextlib
 import ctypes
 import fcntl
@@ -17,9 +18,7 @@ import time
 from . import defaults
 from distutils import version as distutils_version
 
-if os.uname()[0] == 'Linux':
-  pass
-else:
+if os.uname()[0] != 'Linux':
   try:
     import objc
   except ImportError:
@@ -60,14 +59,8 @@ MAX_SUPPORTED_VERS = '10.10'
 
 class GmacpyutilException(Exception):
   """Module specific error class."""
-
-
 class LogConfigurationError(GmacpyutilException):
   """Bad logging configuration."""
-
-
-
-
 class MissingImportsError(GmacpyutilException):
   """Missing Mac-specific imports."""
 
@@ -97,7 +90,7 @@ class MultilineSysLogHandler(logging.handlers.SysLogHandler):
         break_loc_post = 2000
 
       r1msg = msg[:break_loc_pre]
-      r2msg = 'CONTINUED: %s' % msg[break_loc_post:]
+      r2msg = f'CONTINUED: {msg[break_loc_post:]}'
 
       r1 = logging.LogRecord(
           record.name, record.levelno, record.pathname, record.lineno,
@@ -342,8 +335,7 @@ def RunProcessInBackground(*args, **kwargs):
 def GetConsoleUser():
   """Returns current console user."""
   stat_info = os.stat('/dev/console')
-  console_user = pwd.getpwuid(stat_info.st_uid)[0]
-  return console_user
+  return pwd.getpwuid(stat_info.st_uid)[0]
 
 
 
@@ -418,9 +410,7 @@ def GetAirportInfo(include_nearby_networks=False):
   airport_info['transmit_power'] = iface.transmitPower()
   airport_info['transmit_rate'] = iface.transmitRate()
 
-  # Get channel information
-  cw_channel = iface.wlanChannel()
-  if cw_channel:
+  if cw_channel := iface.wlanChannel():
     airport_info['channel_number'] = cw_channel.channelNumber()
     airport_info['channel_band'] = cw_channel_band[cw_channel.channelBand()]
 
@@ -437,13 +427,11 @@ def GetAirportInfo(include_nearby_networks=False):
   # Get nearby network information, if requested
   if include_nearby_networks:
     nearby_networks = []
-    try:
+    with contextlib.suppress(TypeError):
       for nw in iface.scanForNetworksWithName_error_(None, None):
         ssid = nw.ssid()
         if ssid not in nearby_networks:
           nearby_networks.append(ssid)
-    except TypeError:
-      pass
     airport_info['nearby_networks'] = nearby_networks
 
   return airport_info
@@ -481,12 +469,12 @@ def GetPowerState():
   Raises:
     GmacpyutilException: command failed to execute.
   """
-  power_info = {}
-  power_info['ac_power'] = '-1'
-  power_info['battery_percent'] = '-1'
-  power_info['battery_state'] = '-1'
-  power_info['minutes_remaining'] = '-1'
-
+  power_info = {
+      'ac_power': '-1',
+      'battery_percent': '-1',
+      'battery_state': '-1',
+      'minutes_remaining': '-1',
+  }
   cmd = ['/usr/bin/pmset', '-g', 'ps']
   # pylint: disable=unpacking-non-sequence
   stdout, stderr, returncode = RunProcess(cmd)
@@ -500,28 +488,26 @@ def GetPowerState():
     raise GmacpyutilException(
         'pmset error (exit %d): %s' % (returncode, stderr))
 
-  power_source = re.match(
-      r'Currently drawing from \'(?P<power_source>\w+)', lines[0])
-
-  if power_source:
-    if power_source.group('power_source') == 'AC':
+  if power_source := re.match(
+      r'Currently drawing from \'(?P<power_source>\w+)', lines[0]):
+    if power_source['power_source'] == 'AC':
       power_info['ac_power'] = True
 
-    if power_source.group('power_source') == 'Battery':
+    if power_source['power_source'] == 'Battery':
       power_info['ac_power'] = False
 
   if len(lines) > 1:  # sanity check for machine without batteries
-    battery_info = re.match(
+    if battery_info := re.match(
         r'.*\t'
         r'(?P<percent>\d+)%; '
         r'(?P<state>\w+); '
-        r'(?P<hours>\d+):(?P<mins>\d+) remaining', lines[1])
-    if battery_info:  # ensure named parameters matched
-      power_info['battery_percent'] = int(battery_info.group('percent'))
-      power_info['battery_state'] = battery_info.group('state')
+        r'(?P<hours>\d+):(?P<mins>\d+) remaining',
+        lines[1],
+    ):
+      power_info['battery_percent'] = int(battery_info['percent'])
+      power_info['battery_state'] = battery_info['state']
       power_info['minutes_remaining'] = (
-          60 * int(
-              battery_info.group('hours')) + int(battery_info.group('mins')))
+          60 * int(battery_info['hours'])) + int(battery_info['mins'])
   return power_info
 
 
@@ -660,8 +646,7 @@ def NoIdleAssertion(reason):
   try:
     yield
   finally:
-    returncode = ReleasePowerAssertion(io_lib, assertion_id)
-    if returncode:
+    if returncode := ReleasePowerAssertion(io_lib, assertion_id):
       logging.error('Could not release assertion: %s', returncode)
     else:
       logging.debug('Released %s', assertion_type)
@@ -692,8 +677,7 @@ def GetPlistKey(plist, key):
   Returns:
     The key value, or None on error or if the key is not present.
   """
-  mach_info = GetPlist(plist)
-  if mach_info:
+  if mach_info := GetPlist(plist):
     if key in mach_info:
       return mach_info[key]
   else:
@@ -734,14 +718,12 @@ def SetPlistKey(plist, key, value):
   Raises:
     MissingImportsError: if NSMutableDictionary is missing
   """
-  if NSMutableDictionary:
-    mach_info = NSMutableDictionary.dictionaryWithContentsOfFile_(plist)
-    if not mach_info:
-      mach_info = NSMutableDictionary.alloc().init()
-    mach_info[key] = value
-    return mach_info.writeToFile_atomically_(plist, True)
-  else:
+  if not NSMutableDictionary:
     raise MissingImportsError('NSMutableDictionary not imported successfully.')
+  mach_info = (NSMutableDictionary.dictionaryWithContentsOfFile_(plist)
+               or NSMutableDictionary.alloc().init())
+  mach_info[key] = value
+  return mach_info.writeToFile_atomically_(plist, True)
 
 
 def SetMachineInfoForKey(key, value):
@@ -767,7 +749,7 @@ def Facts():
   # pylint: disable=unpacking-non-sequence
   (stdout, stderr, returncode) = RunProcess(cmd)
   if returncode:
-    raise GmacpyutilException('Puppetd Error: %s' % stderr)
+    raise GmacpyutilException(f'Puppetd Error: {stderr}')
   factpath = stdout.strip()  # pylint: disable=maybe-no-member
   all_facts = {}
   cmd = ['/usr/bin/facter', '-p']
@@ -775,7 +757,7 @@ def Facts():
   (stdout, stderr, returncode) = RunProcess(cmd, env=env)
   # pylint: enable=unpacking-non-sequence
   if returncode:
-    raise GmacpyutilException('Facter Error: %s' % stderr)
+    raise GmacpyutilException(f'Facter Error: {stderr}')
   for line in stdout.split('\n'):  # pylint: disable=maybe-no-member
     fact_value = [i.strip() for i in line.split('=>')]
     if len(fact_value) != 2:
@@ -799,9 +781,7 @@ def FactValue(fact):
       The value of the specified fact or None if non-existent.
   """
   facts = Facts()
-  if fact in facts:
-    return facts[fact]
-  return None
+  return facts[fact] if fact in facts else None
 
 
 
@@ -820,10 +800,10 @@ def GetOSVersion():
   if rc != 0:
     raise GmacpyutilException('Unable to retrieve OS version - Error: %s.', err)
   os_version = out.strip()
-  match = re.match(r'([0-9]+\.)', os_version)
-  if not match:
+  if match := re.match(r'([0-9]+\.)', os_version):
+    return os_version
+  else:
     raise GmacpyutilException('Unexpected OS version returned.')
-  return os_version
 
 
 def GetMajorOSVersion():
@@ -838,8 +818,7 @@ def GetMajorOSVersion():
   except GmacpyutilException:
     return False
   version_list = os_version.split('.')
-  major_os_version = '.'.join(version_list[:2])
-  return major_os_version
+  return '.'.join(version_list[:2])
 
 
 def GetTrack():
@@ -849,16 +828,15 @@ def GetTrack():
     track: As defined in Track key, stable if undefined, or unstable
         if Major OS version does not match currently supported version.
   """
-  major_os_version = GetMajorOSVersion()
-  if not major_os_version:
-    track = 'stable'
-  else:
+  if major_os_version := GetMajorOSVersion():
     track = MachineInfoForKey('Track')
     if distutils_version.LooseVersion(
         major_os_version) > distutils_version.LooseVersion(MAX_SUPPORTED_VERS):
       track = 'unstable'
     elif track not in ['stable', 'testing', 'unstable']:
       track = 'stable'
+  else:
+    track = 'stable'
   return track
 
 
@@ -881,10 +859,7 @@ def IsTextConsole():
     ret = security_lib.SessionGetInfo(
         session, ctypes.byref(session_id), ctypes.byref(attributes))
 
-    if ret != 0:
-      return True
-
-    return not attributes.value & SESSIONHASGRAPHICACCESS
+    return True if ret != 0 else not attributes.value & SESSIONHASGRAPHICACCESS
   except OSError:
     return True
 
@@ -896,5 +871,4 @@ def InteractiveConsole():
   import readline
   # pylint: enable=g-import-not-at-top,unused-variable
   console = code.InteractiveConsole(dict(globals(), **locals()))
-  console.interact('Interactive shell for %s' %
-                   os.path.basename(sys.argv[0]))
+  console.interact(f'Interactive shell for {os.path.basename(sys.argv[0])}')

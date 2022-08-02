@@ -76,10 +76,7 @@ class SCDynamicPreferences(object):
         self.ReadProxySettings())
     logging.debug('initial proxy settings: %s', proxies)
     proxies['ProxyAutoConfigURLString'] = pac
-    if enable:
-      proxies['ProxyAutoConfigEnable'] = 1
-    else:
-      proxies['ProxyAutoConfigEnable'] = 0
+    proxies['ProxyAutoConfigEnable'] = 1 if enable else 0
     logging.debug('Setting ProxyAutoConfigURLString to %s and '
                   'ProxyAutoConfigEnable to %s', pac, enable)
     result = SCDynamicStoreSetValue(self.store,
@@ -102,24 +99,17 @@ class SCDynamicPreferences(object):
       SysconfigError: On failure (SCDynamicStore* does return False
       on failure, we don't get any better errors).
     """
-    long_key = '%s%s' % (CORP_SETUP, key)
-    if SCDynamicStoreCopyValue(self.store, long_key) is not None:
-      key_set = SCDynamicStoreSetValue(self.store, long_key, value)
-      if key_set:
-        logging.debug('Setting %s to value %s', long_key, value)
-        return True
-      else:
-        raise SysconfigError('Failed setting %s with value %s' % (
-            long_key, value))
-
+    long_key = f'{CORP_SETUP}{key}'
+    if SCDynamicStoreCopyValue(self.store, long_key) is None:
+      if not (add := SCDynamicStoreAddValue(self.store, long_key, value)):
+        raise SysconfigError(f'Failed adding {long_key} with value {value}')
+      logging.debug('Adding %s with value %s', long_key, value)
+      return True
+    elif key_set := SCDynamicStoreSetValue(self.store, long_key, value):
+      logging.debug('Setting %s to value %s', long_key, value)
+      return True
     else:
-      add = SCDynamicStoreAddValue(self.store, long_key, value)
-      if add:
-        logging.debug('Adding %s with value %s', long_key, value)
-        return True
-      else:
-        raise SysconfigError('Failed adding %s with value %s' % (
-            long_key, value))
+      raise SysconfigError(f'Failed setting {long_key} with value {value}')
 
   def GetCorpSetupKey(self, key):
     """Get key-value pair from the CORP_SETUP tree.
@@ -133,13 +123,12 @@ class SCDynamicPreferences(object):
     Raises:
       SysconfigError: On failure (see above).
     """
-    long_key = '%s%s' % (CORP_SETUP, key)
+    long_key = f'{CORP_SETUP}{key}'
     key = SCDynamicStoreCopyValue(self.store, long_key)
     if key is not None:
       return key
-    else:
-      logging.debug('Failed retrieving %s', long_key)
-      raise SysconfigError('Failed retrieving %s' % long_key)
+    logging.debug('Failed retrieving %s', long_key)
+    raise SysconfigError(f'Failed retrieving {long_key}')
 
 
 class SCPreferences(object):
@@ -171,16 +160,13 @@ class SCPreferences(object):
     if base is '':
       # If base is '', the path is '/' so we just return the whole tree
       return settings
-    if base in settings:
-      return settings[base]
-    else:
-      return None
+    return settings[base] if base in settings else None
 
   def SetPathValue(self, path, value):
     """Sets the path value for a given path."""
     base = os.path.basename(path)
     if not base:
-      raise SysconfigError('Updating %s not permitted.' % path)
+      raise SysconfigError(f'Updating {path} not permitted.')
     tree = os.path.dirname(path)
     settings = SCPreferencesPathGetValue(self.session, tree)
     if not settings:
@@ -245,7 +231,7 @@ class SystemProfiler(object):
     argv = ['/usr/sbin/system_profiler', '-XML', sp_type]
     stdout, unused_stderr, returncode = gmacpyutil.RunProcess(argv)
     if returncode is not 0:
-      raise SystemProfilerError('Could not run %s' % argv)
+      raise SystemProfilerError(f'Could not run {argv}')
     else:
       return stdout
 
@@ -333,8 +319,7 @@ def GetMacAddresses():
   """
   mac_addresses = []
   for interface in GetDot1xInterfaces():
-    cur_mac = interface['mac']
-    if cur_mac:
+    if cur_mac := interface['mac']:
       mac_addresses.append(cur_mac.replace(':', '').upper())
   return mac_addresses
 
@@ -366,8 +351,7 @@ def GetNetworkInterfaces():
   interfaces = []
   ni_data = gmacpyutil.GetPlist(NI_PLIST)
   for cur_int in ni_data['Interfaces']:
-    interface = {}
-    interface['type'] = unicode(cur_int['SCNetworkInterfaceType'])
+    interface = {'type': unicode(cur_int['SCNetworkInterfaceType'])}
     interface['mac'] = _GetMACFromData(cur_int['IOMACAddress'])
     interface['name'] = unicode(
         cur_int['SCNetworkInterfaceInfo']['UserDefinedName'])
@@ -384,13 +368,12 @@ def GetDot1xInterfaces():
   Returns:
     Array of dict or empty array
   """
-  interfaces = []
-  for interface in GetNetworkInterfaces():
-    if interface['type'] == 'IEEE80211' or interface['type'] == 'Ethernet':
-      if (interface['builtin'] and
-          'AppleThunderboltIPPort' not in interface['bus']):
-        interfaces.append(interface)
-  return interfaces
+  return [
+      interface for interface in GetNetworkInterfaces()
+      if interface['type'] in ['IEEE80211', 'Ethernet'] and (
+          interface['builtin']
+          and 'AppleThunderboltIPPort' not in interface['bus'])
+  ]
 
 
 def ConfigureSystemProxy(proxy=CORP_PROXY, enable=True):
@@ -414,10 +397,7 @@ def GetLocalHostname():
   except TypeError:
     # LocalHostName (scutil --get LocalHostName) is not set.
     hostname = None
-  if hostname:
-    return hostname
-  else:
-    return 'noname'
+  return hostname or 'noname'
 
 
 def GetLocalName():

@@ -40,10 +40,11 @@ def GetWifiInterface():
       interface exists.
   """
   interfaces = systemconfig.GetNetworkInterfaces()
-  for interface in interfaces:
-    if interface['type'] == 'IEEE80211':
-      return interface['dev']
-  return None
+  return next(
+      (interface['dev']
+       for interface in interfaces if interface['type'] == 'IEEE80211'),
+      None,
+  )
 
 
 def SplitNetworkNameSecurity(network):
@@ -82,8 +83,7 @@ def GetPreferredNetworks():
     networks: The list of networks
   """
   networks = []
-  plistdata = gmacpyutil.MachineInfoForKey('PreferredNetworks')
-  if plistdata:
+  if plistdata := gmacpyutil.MachineInfoForKey('PreferredNetworks'):
     # Backwards compatible with single string PreferredNetworks
     if isinstance(plistdata, basestring):
       networks = [plistdata]

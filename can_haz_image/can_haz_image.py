@@ -51,13 +51,13 @@ class CanHazImage(object):
     self.thirdparty_location = location
     self.image_creation_time = datetime.datetime.now().strftime('%Y%m%d%H%M')
     self.os_version = RunProcess(['sw_vers'])[0].split('\t')[2][:4]
-    self.installer_choices = '%s_InstallerChoices.xml' % self.os_version
+    self.installer_choices = f'{self.os_version}_InstallerChoices.xml'
     self.newimagepath = ''
 
   def CreateCatalogNames(self, catalog_name):
     """Generates catalog names."""
-    self.new_catalogfile = '%s%s_new.catalog' % (catalog_name, self.os_version)
-    self.old_catalogfile = '%s%s_old.catalog' % (catalog_name, self.os_version)
+    self.new_catalogfile = f'{catalog_name}{self.os_version}_new.catalog'
+    self.old_catalogfile = f'{catalog_name}{self.os_version}_old.catalog'
 
   def NewCatalog(self, catalog_name):
     """Generates a new catalog with the latest packages."""
@@ -159,8 +159,7 @@ class CanHazImage(object):
       f_hash: SHA1 hash for the file provided in filepath.
     """
     f_content = open(filepath, 'r').read()
-    f_hash = hashlib.sha1(f_content).hexdigest()
-    return f_hash
+    return hashlib.sha1(f_content).hexdigest()
 
   def CheckRequirements(self):
     """Checks prerequisites for image building."""
@@ -201,9 +200,10 @@ class CanHazImage(object):
       os.mkdir(package_path)
     except OSError:
       pass
-    catalogs = [os.path.join(self.cwd, 'base%s_new.catalog' % self.os_version),
-                os.path.join(self.cwd,
-                             'thirdparty%s_new.catalog' % self.os_version)]
+    catalogs = [
+        os.path.join(self.cwd, f'base{self.os_version}_new.catalog'),
+        os.path.join(self.cwd, f'thirdparty{self.os_version}_new.catalog'),
+    ]
 
     for catalog in catalogs:
       f = open(catalog, 'r')
@@ -414,9 +414,8 @@ class CanHazImage(object):
                                                   os.path.basename(image_file)))
     if os.path.exists(os.path.join(self.cwd, 'lastimage')):
       os.unlink(os.path.join(self.cwd, 'lastimage'))
-    f = open(os.path.join(self.cwd, 'lastimage'), 'w')
-    f.write('/Users/Shared/can_haz_image/%s' % os.path.basename(image_file))
-    f.close()
+    with open(os.path.join(self.cwd, 'lastimage'), 'w') as f:
+      f.write(f'/Users/Shared/can_haz_image/{os.path.basename(image_file)}')
 
   def CleanUp(self, sb, image_file):
     try:
@@ -455,11 +454,10 @@ class ChiConfig(object):
 
   def ReadConfig(self):
     """Reads configuration parameters from file."""
-    f = open(os.path.join(os.getcwd(), 'chi.config'), 'r')
-    config = f.readlines()
-    for line in config:
-      self.config_info[line.split('=')[0]] = line.split('=')[1].strip()
-    f.close()
+    with open(os.path.join(os.getcwd(), 'chi.config'), 'r') as f:
+      config = f.readlines()
+      for line in config:
+        self.config_info[line.split('=')[0]] = line.split('=')[1].strip()
 
   def SetupConfig(self):
     """Creates/Alters configuration file."""
@@ -468,10 +466,9 @@ class ChiConfig(object):
       (webserver, pkgsource) = self.ConfigQuestionnaire()
     else:
       (webserver, pkgsource) = self.ConfigQuestionnaire()
-      f = open(os.path.join(os.getcwd(), 'chi.config'), 'w')
-      content = 'webserver=%s\npkgsource=%s' % (webserver, pkgsource)
-      f.write(content)
-      f.close()
+      with open(os.path.join(os.getcwd(), 'chi.config'), 'w') as f:
+        content = 'webserver=%s\npkgsource=%s' % (webserver, pkgsource)
+        f.write(content)
 
   def ConfigQuestionnaire(self):
     """Gets user input for configuration parameters."""
@@ -607,10 +604,9 @@ class LineGenerator(object):
       f_hash: SHA1 hash for the file provided in filepath.
     """
     statinfo = os.stat(filepath)
-    if statinfo.st_size/1048576 < 200:
+    if statinfo.st_size < 209715200:
       f_content = open(filepath, 'r').read()
-      f_hash = hashlib.sha1(f_content).hexdigest()
-      return f_hash
+      return hashlib.sha1(f_content).hexdigest()
     else:
       cmd = ['shasum', filepath]
       (stdout, unused_sterr, unused_rc) = RunProcess(cmd)

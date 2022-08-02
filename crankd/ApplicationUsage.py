@@ -95,9 +95,7 @@ class ApplicationUsage(object):
     if database_name is None:
       database_name = APPLICATION_USAGE_DB
 
-    conn = sqlite3.connect(database_name)
-
-    return conn
+    return sqlite3.connect(database_name)
 
   def _Close(self, conn):
     """Close database.
@@ -131,9 +129,8 @@ class ApplicationUsage(object):
       logging.error('Error reading application path: %s', user_info)
     if app_path:
       try:
-        app_info_plist = NSDictionary.dictionaryWithContentsOfFile_(
-            '%s/Contents/Info.plist' % app_path)
-        if app_info_plist:
+        if app_info_plist := NSDictionary.dictionaryWithContentsOfFile_(
+            f'{app_path}/Contents/Info.plist'):
           app_version = app_info_plist['CFBundleVersion']
       except KeyError:
         logging.error('Error reading application version from %s', app_path)

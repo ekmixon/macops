@@ -175,8 +175,7 @@ class Knobs(object):
     """
     knobs = {}
     for knob in self._knobs_list:
-      data = gmacpyutil.MachineInfoForKey(knob)
-      if data:
+      if data := gmacpyutil.MachineInfoForKey(knob):
         if knob in (MANUAL_ON_KNOB, MANUAL_OFF_KNOB):
           knobs[knob] = ConvertCSVStringToList(data)
         else:
@@ -206,7 +205,7 @@ def ExperimentIsBucket(experiment, exp_data, mach_uuid):
   ret = type('obj', (object,), dict(status=None, source=AUTO))
   data = exp_data.get(experiment)
   if not data:
-    raise InvalidExperiment('%s is not in %s.' % (experiment, exp_data))
+    raise InvalidExperiment(f'{experiment} is not in {exp_data}.')
 
   try:
     rollout_percent = float(data.get(PERCENT_KEY, 0))
@@ -357,7 +356,7 @@ def FetchUUID():
   if isinstance(uuid, basestring) and re.match(uuid_regex, uuid):
     return uuid
   else:
-    raise ExperimentsError('Malformed UUID: %s' % uuid)
+    raise ExperimentsError(f'Malformed UUID: {uuid}')
 
 
 def AddExperimentToManualList(experiment, knob):
@@ -372,10 +371,10 @@ def AddExperimentToManualList(experiment, knob):
   knobs = KNOBS.Knobs()
   current_value = knobs.get(knob, [])
   if knob in knobs and experiment in current_value:
-    Output('%s is already in %s.' % (experiment, knob))
+    Output(f'{experiment} is already in {knob}.')
   else:
     current_value.append(experiment)
-    Output('New value of %s is %s' % (knob, ','.join(current_value)))
+    Output(f"New value of {knob} is {','.join(current_value)}")
     if not gmacpyutil.SetMachineInfoForKey(knob, ','.join(current_value)):
       raise PlistError('Problem writing to plist.')
 
@@ -391,16 +390,16 @@ def RemoveExperimentFromManualList(experiment, knob):
   """
   knobs = KNOBS.Knobs()
   if knob not in knobs:
-    Output('%s list is empty, nothing to remove.' % knob)
+    Output(f'{knob} list is empty, nothing to remove.')
   else:
     current_value = knobs.get(knob, [])
     if experiment in current_value:
       current_value.remove(experiment)
-      Output('New value of %s is %s' % (knob, ','.join(current_value)))
+      Output(f"New value of {knob} is {','.join(current_value)}")
       if not gmacpyutil.SetMachineInfoForKey(knob, ','.join(current_value)):
         raise PlistError('Problem writing to plist.')
     else:
-      Output('%s is not in %s.' % (experiment, knob))
+      Output(f'{experiment} is not in {knob}.')
 
 
 def ConvertCSVStringToList(csv_string):

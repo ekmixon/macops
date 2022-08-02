@@ -103,10 +103,10 @@ class Certificate(object):
              'serial', 'email']
 
     for attr in attrs:
-      command.extend(['-%s' % attr])
+      command.extend([f'-{attr}'])
     (stdout, stderr, returncode) = gmacpyutil.RunProcess(command, pem)
     if returncode:
-      raise CertError('Unable to retrieve data for certificates: %s' % stderr)
+      raise CertError(f'Unable to retrieve data for certificates: {stderr}')
     output = stdout.splitlines()
     for index, attr in enumerate(attrs):
       if attr in ('issuer', 'subject'):
@@ -218,7 +218,7 @@ def DeleteCert(osx_fingerprint, keychain=None, gui=False,
       gmacpyutil.RunProcess(cmd, sudo=sudo, sudo_password=sudo_pass))
 
   if returncode:
-    raise CertError('Unable to delete certificate: %s' % stderr)
+    raise CertError(f'Unable to delete certificate: {stderr}')
 
 
 def FindCertificates(subject=None, subject_cn=None, issuer=None, issuer_cn=None,
@@ -253,16 +253,16 @@ def FindCertificates(subject=None, subject_cn=None, issuer=None, issuer_cn=None,
   attrs = vars().keys()[:]
   attrs.remove('keychain')
   allcerts = _GetCertificates(keychain=keychain)
-  matchedcerts = []
-
-  for cert in allcerts:
-    if reduce(operator.mul,  # pylint: disable=bad-builtin
-              [(cert.get(k) == eval(k))  # pylint: disable=eval-used
-               for k in attrs
-               if eval(k)],  # pylint: disable=eval-used
-              True):
-      matchedcerts.append(cert)
-  return matchedcerts
+  return [
+      cert for cert in allcerts if reduce(
+          operator.mul,  # pylint: disable=bad-builtin
+          [
+              (cert.get(k) == eval(k))  # pylint: disable=eval-used
+              for k in attrs if eval(k)
+          ],  # pylint: disable=eval-used
+          True,
+      )
+  ]
 
 
 def CertificateExpired(cert, expires=0):
@@ -277,10 +277,8 @@ def CertificateExpired(cert, expires=0):
     CertError: cert is a mandatory argument
     CertError: cert is not a PEM encoded x509 cert
   """
-  expiry = datetime.datetime.today() + datetime.timedelta(seconds=expires)
-  # enddate is a list of [str, (datetime|None)], we want the datetime object
-  cert_end = cert.enddate[1]
-  if cert_end:
+  expiry = datetime.datetime.now() + datetime.timedelta(seconds=expires)
+  if cert_end := cert.enddate[1]:
     return expiry > cert_end
   else:
     raise CertError('Certificate has a malformed enddate.')
@@ -331,10 +329,8 @@ def ClearIdentityPreferences(sudo_password=None):
   (keychain_content, _, _) = gmacpyutil.RunProcess(cmd)
 
   for line in keychain_content.splitlines():
-    matches = service_re.match(line)
-    if matches:
-      cmd = [CMD_SECURITY, 'set-identity-preference',
-             '-n', '-s', matches.group(1)]
+    if matches := service_re.match(line):
+      cmd = [CMD_SECURITY, 'set-identity-preference', '-n', '-s', matches[1]]
       logging.debug('Removing identity preference: %s', cmd)
       gmacpyutil.RunProcess(cmd, sudo=bool(sudo_password),
                             sudo_password=sudo_password)
@@ -429,13 +425,11 @@ def InstallPrivateKeyInKeychain(private_key, keychain=login_keychain,
                                     password=password)
 
   temp_dir = tempfile.mkdtemp(prefix='cert_pkey_install')
-  key_file = '%s/private.key' % temp_dir
+  key_file = f'{temp_dir}/private.key'
 
   try:
-    key_handle = open(key_file, 'w')
-    key_handle.write(private_key)
-    key_handle.close()
-
+    with open(key_file, 'w') as key_handle:
+      key_handle.write(private_key)
     logging.info('Installing downloaded key into the %s keychain', keychain)
 
     command = [CMD_SECURITY, 'import', key_file, '-x', '-k', keychain]
@@ -454,7 +448,7 @@ def InstallPrivateKeyInKeychain(private_key, keychain=login_keychain,
     if status:
       raise KeychainError(stdout, stderr)
   except IOError:
-    raise KeychainError('Could not write to temp files in %s' % temp_dir)
+    raise KeychainError(f'Could not write to temp files in {temp_dir}')
   finally:
     shutil.rmtree(temp_dir)
 
@@ -494,13 +488,11 @@ def InstallCertInKeychain(pem, private_key, keychain=login_keychain,
                               password=sudo_pass)
 
   temp_dir = tempfile.mkdtemp(prefix='cert_install')
-  cert_file = '%s/certificate.cer' % temp_dir
+  cert_file = f'{temp_dir}/certificate.cer'
 
   try:
-    cert_handle = open(cert_file, 'w')
-    cert_handle.write(pem)
-    cert_handle.close()
-
+    with open(cert_file, 'w') as cert_handle:
+      cert_handle.write(pem)
     logging.info('Installing downloaded certificate into the %s keychain',
                  keychain)
 
@@ -512,7 +504,7 @@ def InstallCertInKeychain(pem, private_key, keychain=login_keychain,
     if status:
       raise KeychainError(stdout, stderr)
   except IOError:
-    raise KeychainError('Could not write to temp files in %s' % temp_dir)
+    raise KeychainError(f'Could not write to temp files in {temp_dir}')
   finally:
     shutil.rmtree(temp_dir)
 
@@ -537,7 +529,7 @@ def InstallTrustedCertInKeychain(pem, root_ca=False, policies=None, gui=False,
                                     password=password)
 
   temp_dir = tempfile.mkdtemp(prefix='trusted_cert_install')
-  trusted_cert_file = '%s/trusted_certificate.pem' % temp_dir
+  trusted_cert_file = f'{temp_dir}/trusted_certificate.pem'
 
   try:
     with open(trusted_cert_file, 'w') as trusted_cert_handle:
@@ -563,7 +555,7 @@ def InstallTrustedCertInKeychain(pem, root_ca=False, policies=None, gui=False,
     if status:
       raise KeychainError(stdout, stderr)
   except IOError:
-    raise KeychainError('Could not write to temp files in %s' % temp_dir)
+    raise KeychainError(f'Could not write to temp files in {temp_dir}')
   finally:
     shutil.rmtree(temp_dir)
 
@@ -630,7 +622,7 @@ def GenerateCSR(subject, rsa_bits=2048, passphrase=None):
   (stdout, stderr, status) = gmacpyutil.RunProcess(command, env=env)
   logging.debug('Private key generation output: %s', stdout)
   if status:
-    raise CertError('Error creating private key: %s' % stderr)
+    raise CertError(f'Error creating private key: {stderr}')
   private_key = stdout
 
   command = [CMD_OPENSSL, 'req', '-new', '-subj', subject, '-key',
@@ -645,7 +637,7 @@ def GenerateCSR(subject, rsa_bits=2048, passphrase=None):
   (csr, stderr, status) = gmacpyutil.RunProcess(command, private_key, env=env)
   logging.debug('CSR generation output: %s', csr)
   if status:
-    raise CertError('Error creating CSR: %s' % stderr)
+    raise CertError(f'Error creating CSR: {stderr}')
 
   return (csr, private_key, passphrase)
 

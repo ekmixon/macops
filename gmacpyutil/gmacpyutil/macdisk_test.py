@@ -152,7 +152,7 @@ class ImageTest(mox.MoxTestBase):
     self.mox.ReplayAll()
     img = macdisk.Image('imagepath')
     disks = img.Attach(password=password, verify=verify, browse=browse)
-    self.assertEqual(set(disks), set(['disk1', 'disk1s1', 'disk1s2']))
+    self.assertEqual(set(disks), {'disk1', 'disk1s1', 'disk1s2'})
     self.mox.VerifyAll()
 
   def testDetach(self):
